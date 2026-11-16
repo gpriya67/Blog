@@ -1,75 +1,69 @@
-// server.js
 
-const express = require('express');
-const bodyParser = require('body-parser');
-const mongoose = require('mongoose');
-const cors = require("cors")
+const express = require("express");
+const mongoose = require("mongoose");
+const cors = require("cors");
 
 const app = express();
-app.use(cors())
 
-// Middleware
-app.use(bodyParser.json());
+app.use(cors());
+app.use(express.json());
 
 // MongoDB Connection
-mongoose.connect('mongodb://localhost:27017/blogDB').then(()=>{
-    console.log("Connection Successfull")
-})
+mongoose.connect("mongodb://127.0.0.1:27017/blogDB")
+  .then(() => {
+    console.log("MongoDB Connection Successful");
 
+    app.listen(5000, () => {
+      console.log("Server running on port 5000");
+    });
+  })
+  .catch((err) => {
+    console.log("MongoDB Connection Error:", err);
+  });
 
-// Define Schema
+// Schema
 const blogSchema = new mongoose.Schema({
   newTitle: String,
   newContent: String,
-  date:String,
-  likes:Number
+  date: String,
+  likes: Number
 });
 
-const Blog = mongoose.model('Blog', blogSchema);
+const Blog = mongoose.model("Blog", blogSchema);
 
-// Routes
-app.get('/api/blogs', async (req, res) => {
+// GET all blogs
+app.get("/api/blogs", async (req, res) => {
   try {
     const blogs = await Blog.find({});
-    console.log(blogs)
-    res.send(blogs)
+    res.json(blogs);
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
 });
 
-
-app.patch('/api/blogs/like/:id', async (req, res) => {
-    try {
-      const blog = await Blog.findById(req.params.id);
-      if (!blog) {
-        return res.status(404).json({ message: 'Blog not found' });
-      }
-  
-      // Increment the likes of the blog post
-      const updatedBlog = await Blog.findByIdAndUpdate(
-        req.params.id,
-        { $inc: { likes: 1 } },
-        { new: true } // This option returns the modified document rather than the original
-      );
-  
-      res.json(updatedBlog);
-    } catch (err) {
-      res.status(500).json({ message: err.message });
-    }
-  });
-
-
-app.post('/api/blogs', async (req, res) => {
-
-  const blog = new Blog({
-    newTitle: req.body.newTitle,
-    newContent: req.body.newContent,
-    date:req.body.date,
-    likes:req.body.likes
-  });
-
+// LIKE blog
+app.patch("/api/blogs/like/:id", async (req, res) => {
   try {
+    const updatedBlog = await Blog.findByIdAndUpdate(
+      req.params.id,
+      { $inc: { likes: 1 } },
+      { new: true }
+    );
+
+    if (!updatedBlog) {
+      return res.status(404).json({ message: "Blog not found" });
+    }
+
+    res.json(updatedBlog);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+// CREATE blog
+app.post("/api/blogs", async (req, res) => {
+  try {
+    const blog = new Blog(req.body);
     const newBlog = await blog.save();
     res.status(201).json(newBlog);
   } catch (err) {
@@ -77,38 +71,39 @@ app.post('/api/blogs', async (req, res) => {
   }
 });
 
-// Update a blog post
-app.put('/api/blogs/:id', async (req, res) => {
+// UPDATE blog
+app.put("/api/blogs/:id", async (req, res) => {
   try {
     const updatedBlog = await Blog.findByIdAndUpdate(
       req.params.id,
       {
         newTitle: req.body.newTitle,
-        newContent: req.body.newContent,
+        newContent: req.body.newContent
       },
-      { new: true }
+      { new: true, runValidators: true }
     );
+
     if (!updatedBlog) {
-      return res.status(404).json({ message: 'Blog not found' });
+      return res.status(404).json({ message: "Blog not found" });
     }
+
     res.json(updatedBlog);
   } catch (err) {
     res.status(400).json({ message: err.message });
   }
 });
 
-// Delete a blog post
-app.delete('/api/blogs/:id', async (req, res) => {
+// DELETE blog
+app.delete("/api/blogs/:id", async (req, res) => {
   try {
     const deletedBlog = await Blog.findByIdAndDelete(req.params.id);
+
     if (!deletedBlog) {
-      return res.status(404).json({ message: 'Blog not found' });
+      return res.status(404).json({ message: "Blog not found" });
     }
-    res.json({ message: 'Blog deleted successfully' });
+
+    res.json({ message: "Blog deleted successfully" });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
 });
-
-// Start server
-app.listen(5000, () => console.log('Server running on port 5000'));
